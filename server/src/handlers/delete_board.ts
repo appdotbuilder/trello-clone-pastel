@@ -1,9 +1,22 @@
 
+import { db } from '../db';
+import { boardsTable } from '../db/schema';
+import { eq, and } from 'drizzle-orm';
+
 export const deleteBoard = async (boardId: number, userId: number): Promise<{ success: boolean }> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to delete a board by:
-    // 1. Validating that the board exists and belongs to the authenticated user
-    // 2. Deleting the board from the database (cascade will delete lists and cards)
-    // 3. Returning success status
-    return Promise.resolve({ success: true });
+  try {
+    // Delete the board only if it exists and belongs to the authenticated user
+    const result = await db.delete(boardsTable)
+      .where(and(
+        eq(boardsTable.id, boardId),
+        eq(boardsTable.user_id, userId)
+      ))
+      .execute();
+
+    // Check if any rows were affected (board was found and deleted)
+    return { success: (result.rowCount ?? 0) > 0 };
+  } catch (error) {
+    console.error('Board deletion failed:', error);
+    throw error;
+  }
 };

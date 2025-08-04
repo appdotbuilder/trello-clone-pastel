@@ -1,9 +1,36 @@
 
+import { db } from '../db';
+import { listsTable, boardsTable } from '../db/schema';
+import { eq, and } from 'drizzle-orm';
+
 export const deleteList = async (listId: number, userId: number): Promise<{ success: boolean }> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to delete a list by:
-    // 1. Validating that the list exists and its board belongs to the authenticated user
-    // 2. Deleting the list from the database (cascade will delete cards)
-    // 3. Returning success status
-    return Promise.resolve({ success: true });
+  try {
+    // First verify that the list exists and belongs to a board owned by the user
+    const listWithBoard = await db.select({
+      list_id: listsTable.id,
+      board_user_id: boardsTable.user_id
+    })
+    .from(listsTable)
+    .innerJoin(boardsTable, eq(listsTable.board_id, boardsTable.id))
+    .where(eq(listsTable.id, listId))
+    .execute();
+
+    if (listWithBoard.length === 0) {
+      throw new Error('List not found');
+    }
+
+    if (listWithBoard[0].board_user_id !== userId) {
+      throw new Error('Unauthorized: List belongs to a board owned by another user');
+    }
+
+    // Delete the list (cascade will automatically delete associated cards)
+    const result = await db.delete(listsTable)
+      .where(eq(listsTable.id, listId))
+      .execute();
+
+    return { success: true };
+  } catch (error) {
+    console.error('List deletion failed:', error);
+    throw error;
+  }
 };

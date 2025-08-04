@@ -1,20 +1,62 @@
 
+import { db } from '../db';
+import { cardsTable, boardsTable, listsTable } from '../db/schema';
 import { type UpdateCardInput, type Card } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export const updateCard = async (input: UpdateCardInput, userId: number): Promise<Card> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to update an existing card by:
-    // 1. Validating that the card exists and its board belongs to the authenticated user
-    // 2. Updating the card fields in the database
-    // 3. Returning the updated card data
-    return Promise.resolve({
-        id: input.id,
-        title: input.title || 'Placeholder Card',
-        description: input.description || null,
-        due_date: input.due_date || null,
-        assigned_user_id: input.assigned_user_id || null,
-        list_id: input.list_id || 1,
-        position: input.position || 0,
-        created_at: new Date()
-    } as Card);
+  try {
+    // First, verify the card exists and the user owns the board
+    const cardWithBoard = await db.select({
+      card: cardsTable,
+      board_user_id: boardsTable.user_id
+    })
+    .from(cardsTable)
+    .innerJoin(listsTable, eq(cardsTable.list_id, listsTable.id))
+    .innerJoin(boardsTable, eq(listsTable.board_id, boardsTable.id))
+    .where(eq(cardsTable.id, input.id))
+    .execute();
+
+    if (cardWithBoard.length === 0) {
+      throw new Error('Card not found');
+    }
+
+    if (cardWithBoard[0].board_user_id !== userId) {
+      throw new Error('Unauthorized: Card does not belong to user');
+    }
+
+    // Build update object with only provided fields
+    const updateData: Partial<typeof cardsTable.$inferInsert> = {};
+    
+    if (input.title !== undefined) {
+      updateData.title = input.title;
+    }
+    if (input.description !== undefined) {
+      updateData.description = input.description;
+    }
+    if (input.due_date !== undefined) {
+      updateData.due_date = input.due_date;
+    }
+    if (input.assigned_user_id !== undefined) {
+      updateData.assigned_user_id = input.assigned_user_id;
+    }
+    if (input.list_id !== undefined) {
+      updateData.list_id = input.list_id;
+    }
+    if (input.position !== undefined) {
+      updateData.position = input.position;
+    }
+
+    // Update the card
+    const result = await db.update(cardsTable)
+      .set(updateData)
+      .where(eq(cardsTable.id, input.id))
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Card update failed:', error);
+    throw error;
+  }
 };

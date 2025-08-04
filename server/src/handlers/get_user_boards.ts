@@ -1,11 +1,19 @@
 
+import { db } from '../db';
+import { boardsTable } from '../db/schema';
 import { type Board } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export const getUserBoards = async (userId: number): Promise<Board[]> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to fetch all boards belonging to a specific user by:
-    // 1. Validating that the user is authenticated
-    // 2. Querying all boards where user_id matches the authenticated user
-    // 3. Returning the list of boards
-    return Promise.resolve([]);
+  try {
+    const results = await db.select()
+      .from(boardsTable)
+      .where(eq(boardsTable.user_id, userId))
+      .execute();
+
+    return results;
+  } catch (error) {
+    console.error('Failed to get user boards:', error);
+    throw error;
+  }
 };

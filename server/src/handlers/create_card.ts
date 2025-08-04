@@ -1,20 +1,37 @@
 
+import { db } from '../db';
+import { cardsTable, listsTable } from '../db/schema';
 import { type CreateCardInput, type Card } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export const createCard = async (input: CreateCardInput): Promise<Card> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to create a new card by:
-    // 1. Validating that the list exists and its board belongs to the authenticated user
-    // 2. Creating the card in the database with the specified position
-    // 3. Returning the created card data
-    return Promise.resolve({
-        id: 1,
+  try {
+    // Verify that the list exists
+    const list = await db.select()
+      .from(listsTable)
+      .where(eq(listsTable.id, input.list_id))
+      .execute();
+
+    if (list.length === 0) {
+      throw new Error(`List with id ${input.list_id} not found`);
+    }
+
+    // Insert card record
+    const result = await db.insert(cardsTable)
+      .values({
         title: input.title,
         description: input.description || null,
         due_date: input.due_date || null,
         assigned_user_id: input.assigned_user_id || null,
         list_id: input.list_id,
-        position: input.position,
-        created_at: new Date()
-    } as Card);
+        position: input.position
+      })
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Card creation failed:', error);
+    throw error;
+  }
 };

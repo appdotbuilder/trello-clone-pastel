@@ -1,12 +1,46 @@
 
+import { db } from '../db';
+import { cardsTable, listsTable, boardsTable, usersTable } from '../db/schema';
 import { type Card } from '../schema';
+import { eq, and, asc } from 'drizzle-orm';
 
 export const getListCards = async (listId: number, userId: number): Promise<Card[]> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to fetch all cards for a specific list by:
-    // 1. Validating that the list exists and its board belongs to the authenticated user
-    // 2. Querying all cards for the list ordered by position
-    // 3. Including assigned user information if available
-    // 4. Returning the list of cards
-    return Promise.resolve([]);
+  try {
+    // First verify the list exists and belongs to a board owned by the user
+    const listValidation = await db.select()
+      .from(listsTable)
+      .innerJoin(boardsTable, eq(listsTable.board_id, boardsTable.id))
+      .where(
+        and(
+          eq(listsTable.id, listId),
+          eq(boardsTable.user_id, userId)
+        )
+      )
+      .execute();
+
+    if (listValidation.length === 0) {
+      throw new Error('List not found or access denied');
+    }
+
+    // Query all cards for the list with assigned user information
+    const results = await db.select({
+      id: cardsTable.id,
+      title: cardsTable.title,
+      description: cardsTable.description,
+      due_date: cardsTable.due_date,
+      assigned_user_id: cardsTable.assigned_user_id,
+      list_id: cardsTable.list_id,
+      position: cardsTable.position,
+      created_at: cardsTable.created_at
+    })
+      .from(cardsTable)
+      .where(eq(cardsTable.list_id, listId))
+      .orderBy(asc(cardsTable.position))
+      .execute();
+
+    return results;
+  } catch (error) {
+    console.error('Get list cards failed:', error);
+    throw error;
+  }
 };

@@ -1,17 +1,34 @@
 
+import { db } from '../db';
+import { listsTable, boardsTable } from '../db/schema';
 import { type CreateListInput, type List } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export const createList = async (input: CreateListInput): Promise<List> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to create a new list by:
-    // 1. Validating that the board exists and belongs to the authenticated user
-    // 2. Creating the list in the database with the specified position
-    // 3. Returning the created list data
-    return Promise.resolve({
-        id: 1,
+  try {
+    // First, verify that the board exists
+    const board = await db.select()
+      .from(boardsTable)
+      .where(eq(boardsTable.id, input.board_id))
+      .execute();
+
+    if (board.length === 0) {
+      throw new Error(`Board with id ${input.board_id} not found`);
+    }
+
+    // Insert the new list
+    const result = await db.insert(listsTable)
+      .values({
         name: input.name,
         board_id: input.board_id,
-        position: input.position,
-        created_at: new Date()
-    } as List);
+        position: input.position
+      })
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('List creation failed:', error);
+    throw error;
+  }
 };

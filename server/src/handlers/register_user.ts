@@ -1,21 +1,82 @@
 
+import { db } from '../db';
+import { usersTable } from '../db/schema';
 import { type RegisterUserInput, type AuthResponse } from '../schema';
+import { eq } from 'drizzle-orm';
+
+// Simple JWT implementation using Bun's crypto
+const createJWT = async (payload: any, secret: string): Promise<string> => {
+  const header = { alg: 'HS256', typ: 'JWT' };
+  
+  const encodedHeader = btoa(JSON.stringify(header));
+  const encodedPayload = btoa(JSON.stringify(payload));
+  
+  const data = `${encodedHeader}.${encodedPayload}`;
+  const signature = await crypto.subtle.sign(
+    'HMAC',
+    await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    ),
+    new TextEncoder().encode(data)
+  );
+  
+  const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  return `${data}.${encodedSignature}`;
+};
 
 export const registerUser = async (input: RegisterUserInput): Promise<AuthResponse> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to register a new user by:
-    // 1. Validating that email doesn't already exist
-    // 2. Hashing the password using bcrypt or similar
-    // 3. Creating the user in the database
-    // 4. Generating a JWT token for authentication
-    // 5. Returning user data (without password) and token
-    return Promise.resolve({
-        user: {
-            id: 1,
-            email: input.email,
-            name: input.name,
-            created_at: new Date()
-        },
-        token: 'placeholder_jwt_token'
-    } as AuthResponse);
+  try {
+    // Check if user already exists
+    const existingUsers = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.email, input.email))
+      .execute();
+
+    if (existingUsers.length > 0) {
+      throw new Error('User with this email already exists');
+    }
+
+    // Hash password using Bun's built-in password hashing
+    const password_hash = await Bun.password.hash(input.password);
+
+    // Create user record
+    const result = await db.insert(usersTable)
+      .values({
+        email: input.email,
+        password_hash,
+        name: input.name
+      })
+      .returning()
+      .execute();
+
+    const user = result[0];
+
+    // Generate JWT token
+    const token = await createJWT(
+      {
+        user_id: user.id,
+        email: user.email,
+        exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
+      },
+      process.env['JWT_SECRET'] || 'fallback-secret-key'
+    );
+
+    // Return user data without password hash
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        created_at: user.created_at
+      },
+      token
+    };
+  } catch (error) {
+    console.error('User registration failed:', error);
+    throw error;
+  }
 };

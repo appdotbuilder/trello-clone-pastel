@@ -69,6 +69,9 @@ function App() {
   const [draggedCard, setDraggedCard] = useState<CardType | null>(null);
   const [dragOverList, setDragOverList] = useState<number | null>(null);
 
+  // Timer state for periodic updates
+  const [currentTime, setCurrentTime] = useState(new Date());
+
   // Auth functions
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,6 +122,34 @@ function App() {
       setUser(JSON.parse(savedUser));
     }
   }, []);
+
+  // Update current time every minute for timer functionality
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Helper function to format elapsed time
+  const formatElapsedTime = (lastChangeDate: Date): string => {
+    const now = currentTime;
+    const diffInMs = now.getTime() - lastChangeDate.getTime();
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    if (diffInDays > 0) {
+      return `hace ${diffInDays} día${diffInDays === 1 ? '' : 's'}`;
+    } else if (diffInHours > 0) {
+      return `hace ${diffInHours} hora${diffInHours === 1 ? '' : 's'}`;
+    } else if (diffInMinutes > 0) {
+      return `hace ${diffInMinutes} minuto${diffInMinutes === 1 ? '' : 's'}`;
+    } else {
+      return 'hace menos de un minuto';
+    }
+  };
 
   // Load boards when user is authenticated
   const loadBoards = useCallback(async () => {
@@ -366,7 +397,11 @@ function App() {
       setCards((prev: Record<number, CardType[]>) => {
         const newCards = { ...prev };
         newCards[sourceListId] = newCards[sourceListId].filter((card: CardType) => card.id !== draggedCard.id);
-        newCards[targetListId] = [...newCards[targetListId], { ...draggedCard, list_id: targetListId }];
+        newCards[targetListId] = [...newCards[targetListId], { 
+          ...draggedCard, 
+          list_id: targetListId, 
+          last_list_change_at: new Date() // Update the timestamp for moved cards
+        }];
         return newCards;
       });
     } catch (error) {
@@ -791,17 +826,22 @@ function App() {
                             {card.description && (
                               <p className="text-xs text-gray-600 mb-2 line-clamp-2">{card.description}</p>
                             )}
-                            <div className="flex justify-between items-center">
-                              {card.due_date && (
-                                <Badge variant="outline" className="text-xs border-orange-200 text-orange-600">
-                                  📅 {card.due_date.toLocaleDateString()}
-                                </Badge>
-                              )}
-                              {card.assigned_user_id && (
-                                <Badge variant="outline" className="text-xs border-blue-200 text-blue-600">
-                                  👤 Asignado
-                                </Badge>
-                              )}
+                            <div className="flex flex-wrap gap-1 justify-between items-center">
+                              <div className="flex flex-wrap gap-1">
+                                {card.due_date && (
+                                  <Badge variant="outline" className="text-xs border-orange-200 text-orange-600">
+                                    📅 {card.due_date.toLocaleDateString()}
+                                  </Badge>
+                                )}
+                                {card.assigned_user_id && (
+                                  <Badge variant="outline" className="text-xs border-blue-200 text-blue-600">
+                                    👤 Asignado
+                                  </Badge>
+                                )}
+                              </div>
+                              <Badge variant="outline" className="text-xs border-green-200 text-green-600 bg-green-50">
+                                ⏱️ {formatElapsedTime(card.last_list_change_at)}
+                              </Badge>
                             </div>
                           </div>
                         ))}

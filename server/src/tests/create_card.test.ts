@@ -68,6 +68,7 @@ describe('createCard', () => {
     expect(result.position).toEqual(0);
     expect(result.id).toBeDefined();
     expect(result.created_at).toBeInstanceOf(Date);
+    expect(result.last_list_change_at).toBeInstanceOf(Date);
   });
 
   it('should create a card with all optional fields', async () => {
@@ -93,6 +94,7 @@ describe('createCard', () => {
     expect(result.position).toEqual(1);
     expect(result.id).toBeDefined();
     expect(result.created_at).toBeInstanceOf(Date);
+    expect(result.last_list_change_at).toBeInstanceOf(Date);
   });
 
   it('should save card to database', async () => {
@@ -118,6 +120,7 @@ describe('createCard', () => {
     expect(cards[0].list_id).toEqual(testListId);
     expect(cards[0].position).toEqual(2);
     expect(cards[0].created_at).toBeInstanceOf(Date);
+    expect(cards[0].last_list_change_at).toBeInstanceOf(Date);
   });
 
   it('should throw error when list does not exist', async () => {

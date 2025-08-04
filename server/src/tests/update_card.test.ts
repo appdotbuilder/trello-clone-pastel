@@ -14,6 +14,7 @@ describe('updateCard', () => {
   let testUserId: number;
   let testBoardId: number;
   let testListId: number;
+  let testListId2: number;
   let testCardId: number;
   let otherUserId: number;
 
@@ -50,16 +51,24 @@ describe('updateCard', () => {
       .execute();
     testBoardId = boardResult[0].id;
 
-    // Create test list
+    // Create test lists
     const listResult = await db.insert(listsTable)
-      .values({
-        name: 'Test List',
-        board_id: testBoardId,
-        position: 0
-      })
+      .values([
+        {
+          name: 'Test List',
+          board_id: testBoardId,
+          position: 0
+        },
+        {
+          name: 'Second List',
+          board_id: testBoardId,
+          position: 1
+        }
+      ])
       .returning()
       .execute();
     testListId = listResult[0].id;
+    testListId2 = listResult[1].id;
 
     // Create test card
     const cardResult = await db.insert(cardsTable)
@@ -89,6 +98,7 @@ describe('updateCard', () => {
     expect(result.description).toEqual('Original description'); // Should remain unchanged
     expect(result.list_id).toEqual(testListId);
     expect(result.position).toEqual(0);
+    expect(result.last_list_change_at).toBeInstanceOf(Date);
   });
 
   it('should update multiple card fields', async () => {
@@ -165,6 +175,69 @@ describe('updateCard', () => {
     };
 
     await expect(updateCard(input, otherUserId)).rejects.toThrow(/unauthorized/i);
+  });
+
+  it('should update last_list_change_at when list_id is changed', async () => {
+    // Get the original timestamp
+    const originalCard = await db.select()
+      .from(cardsTable)
+      .where(eq(cardsTable.id, testCardId))
+      .execute();
+    const originalTimestamp = originalCard[0].last_list_change_at;
+
+    // Wait a small amount to ensure timestamp difference
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    const input: UpdateCardInput = {
+      id: testCardId,
+      list_id: testListId2 // Move to different list
+    };
+
+    const result = await updateCard(input, testUserId);
+
+    expect(result.list_id).toEqual(testListId2);
+    expect(result.last_list_change_at).toBeInstanceOf(Date);
+    expect(result.last_list_change_at.getTime()).toBeGreaterThan(originalTimestamp.getTime());
+
+    // Verify in database as well
+    const updatedCard = await db.select()
+      .from(cardsTable)
+      .where(eq(cardsTable.id, testCardId))
+      .execute();
+
+    expect(updatedCard[0].last_list_change_at.getTime()).toBeGreaterThan(originalTimestamp.getTime());
+  });
+
+  it('should NOT update last_list_change_at when other fields are changed', async () => {
+    // Get the original timestamp
+    const originalCard = await db.select()
+      .from(cardsTable)
+      .where(eq(cardsTable.id, testCardId))
+      .execute();
+    const originalTimestamp = originalCard[0].last_list_change_at;
+
+    // Wait a small amount to ensure any timestamp difference would be detectable
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    const input: UpdateCardInput = {
+      id: testCardId,
+      title: 'Updated Title',
+      description: 'Updated description',
+      position: 5
+    };
+
+    const result = await updateCard(input, testUserId);
+
+    expect(result.title).toEqual('Updated Title');
+    expect(result.last_list_change_at.getTime()).toEqual(originalTimestamp.getTime());
+
+    // Verify in database as well
+    const updatedCard = await db.select()
+      .from(cardsTable)
+      .where(eq(cardsTable.id, testCardId))
+      .execute();
+
+    expect(updatedCard[0].last_list_change_at.getTime()).toEqual(originalTimestamp.getTime());
   });
 
   it('should handle partial updates correctly', async () => {

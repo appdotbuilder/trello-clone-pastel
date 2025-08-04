@@ -17,6 +17,7 @@ export const moveCard = async (input: MoveCardInput, userId: number): Promise<Ca
         list_id: cardsTable.list_id,
         position: cardsTable.position,
         created_at: cardsTable.created_at,
+        last_list_change_at: cardsTable.last_list_change_at,
         board_user_id: boardsTable.user_id,
       })
         .from(cardsTable)
@@ -120,11 +121,18 @@ export const moveCard = async (input: MoveCardInput, userId: number): Promise<Ca
       }
 
       // 4. Update the card's position and list_id
+      const updateValues: any = {
+        list_id: newListId,
+        position: newPosition,
+      };
+
+      // Update last_list_change_at only when moving between different lists
+      if (oldListId !== newListId) {
+        updateValues.last_list_change_at = new Date();
+      }
+
       const updatedCardResult = await tx.update(cardsTable)
-        .set({
-          list_id: newListId,
-          position: newPosition,
-        })
+        .set(updateValues)
         .where(eq(cardsTable.id, input.card_id))
         .returning()
         .execute();

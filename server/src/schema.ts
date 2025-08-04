@@ -88,7 +88,8 @@ export const cardSchema = z.object({
   assigned_user_id: z.number().nullable(),
   list_id: z.number(),
   position: z.number().int(),
-  created_at: z.coerce.date()
+  created_at: z.coerce.date(),
+  last_list_change_at: z.coerce.date()
 });
 
 export type Card = z.infer<typeof cardSchema>;

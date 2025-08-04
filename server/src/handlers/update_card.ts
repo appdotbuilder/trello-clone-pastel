@@ -42,6 +42,8 @@ export const updateCard = async (input: UpdateCardInput, userId: number): Promis
     }
     if (input.list_id !== undefined) {
       updateData.list_id = input.list_id;
+      // Update last_list_change_at when list_id changes
+      updateData.last_list_change_at = new Date();
     }
     if (input.position !== undefined) {
       updateData.position = input.position;

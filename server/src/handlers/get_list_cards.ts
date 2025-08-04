@@ -31,7 +31,8 @@ export const getListCards = async (listId: number, userId: number): Promise<Card
       assigned_user_id: cardsTable.assigned_user_id,
       list_id: cardsTable.list_id,
       position: cardsTable.position,
-      created_at: cardsTable.created_at
+      created_at: cardsTable.created_at,
+      last_list_change_at: cardsTable.last_list_change_at
     })
       .from(cardsTable)
       .where(eq(cardsTable.list_id, listId))

@@ -17,6 +17,7 @@ export const createCard = async (input: CreateCardInput): Promise<Card> => {
     }
 
     // Insert card record
+    const currentTime = new Date();
     const result = await db.insert(cardsTable)
       .values({
         title: input.title,
@@ -24,7 +25,8 @@ export const createCard = async (input: CreateCardInput): Promise<Card> => {
         due_date: input.due_date || null,
         assigned_user_id: input.assigned_user_id || null,
         list_id: input.list_id,
-        position: input.position
+        position: input.position,
+        last_list_change_at: currentTime
       })
       .returning()
       .execute();

@@ -116,6 +116,71 @@ describe('moveCard', () => {
 
   afterEach(resetDB);
 
+  it('should update last_list_change_at when moving between different lists', async () => {
+    // Get the original timestamp
+    const originalCard = await db.select()
+      .from(cardsTable)
+      .where(eq(cardsTable.id, cardIds[0]))
+      .execute();
+    const originalTimestamp = originalCard[0].last_list_change_at;
+
+    // Wait a small amount to ensure timestamp difference
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    const input: MoveCardInput = {
+      card_id: cardIds[0],
+      source_list_id: sourceListId,
+      target_list_id: targetListId,
+      new_position: 1
+    };
+
+    const result = await moveCard(input, userId);
+
+    // Verify last_list_change_at was updated
+    expect(result.last_list_change_at).toBeInstanceOf(Date);
+    expect(result.last_list_change_at.getTime()).toBeGreaterThan(originalTimestamp.getTime());
+
+    // Verify in database as well
+    const updatedCard = await db.select()
+      .from(cardsTable)
+      .where(eq(cardsTable.id, cardIds[0]))
+      .execute();
+
+    expect(updatedCard[0].last_list_change_at.getTime()).toBeGreaterThan(originalTimestamp.getTime());
+  });
+
+  it('should NOT update last_list_change_at when moving within same list', async () => {
+    // Get the original timestamp
+    const originalCard = await db.select()
+      .from(cardsTable)
+      .where(eq(cardsTable.id, cardIds[0]))
+      .execute();
+    const originalTimestamp = originalCard[0].last_list_change_at;
+
+    // Wait a small amount to ensure any timestamp difference would be detectable
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    const input: MoveCardInput = {
+      card_id: cardIds[0],
+      source_list_id: sourceListId,
+      target_list_id: sourceListId, // Same list
+      new_position: 2
+    };
+
+    const result = await moveCard(input, userId);
+
+    // Verify last_list_change_at was NOT updated
+    expect(result.last_list_change_at.getTime()).toEqual(originalTimestamp.getTime());
+
+    // Verify in database as well
+    const updatedCard = await db.select()
+      .from(cardsTable)
+      .where(eq(cardsTable.id, cardIds[0]))
+      .execute();
+
+    expect(updatedCard[0].last_list_change_at.getTime()).toEqual(originalTimestamp.getTime());
+  });
+
   it('should move card between different lists', async () => {
     const input: MoveCardInput = {
       card_id: cardIds[0],

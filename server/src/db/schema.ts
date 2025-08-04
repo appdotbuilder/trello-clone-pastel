@@ -34,6 +34,7 @@ export const cardsTable = pgTable('cards', {
   list_id: integer('list_id').notNull().references(() => listsTable.id, { onDelete: 'cascade' }),
   position: integer('position').notNull(),
   created_at: timestamp('created_at').defaultNow().notNull(),
+  last_list_change_at: timestamp('last_list_change_at').defaultNow().notNull(),
 });
 
 // Relations
